@@ -331,15 +331,14 @@ void sdfgi_process(vec3 vertex, vec3 normal, vec3 reflection, float roughness, o
 
 		{
 			//process blend
-			float blend_from = (float(sdfgi.probe_axis_size - 1) / 2.0) - 2.5;
-			float blend_to = blend_from + 2.0;
+			// Use chebyshev distance (max of absolute components) to match cube cascade shape
+			// This ensures blend reaches 1.0 at all corners consistently
+			vec3 inner_pos = cascade_pos - sdfgi.cascade_probe_size * 0.5;
+			vec3 abs_pos = abs(inner_pos);
+			float len = max(abs_pos.x, max(abs_pos.y, abs_pos.z));
 
-			vec3 inner_pos = cam_pos * sdfgi.cascades[cascade].to_probe;
-
-			float len = length(inner_pos);
-
-			inner_pos = abs(normalize(inner_pos));
-			len *= max(inner_pos.x, max(inner_pos.y, inner_pos.z));
+			float blend_from = (float(sdfgi.probe_axis_size - 1) / 2.0) - 4.0;
+			float blend_to = blend_from + 4.0;
 
 			if (len >= blend_from) {
 				blend = smoothstep(blend_from, blend_to, len);
@@ -353,7 +352,6 @@ void sdfgi_process(vec3 vertex, vec3 normal, vec3 reflection, float roughness, o
 			if (cascade == sdfgi.max_cascades - 1) {
 				ambient_light.a = 1.0 - blend;
 				reflection_light.a = 1.0 - blend;
-
 			} else {
 				vec3 diffuse2, specular2;
 				cascade_pos = (cam_pos - sdfgi.cascades[cascade + 1].position) * sdfgi.cascades[cascade + 1].to_probe;
@@ -628,17 +626,17 @@ void process_gi(ivec2 pos, vec3 vertex, inout vec4 ambient_light, inout vec4 ref
 		normal = normalize(mat3(scene_data.cam_transform) * normal);
 		vec3 reflection = normalize(reflect(-view, normal));
 
-#ifdef USE_SDFGI
+		#ifdef USE_SDFGI
 		sdfgi_process(vertex, normal, reflection, roughness, ambient_light, reflection_light);
-#endif
+		#endif
 
-#ifdef USE_VOXEL_GI_INSTANCES
+		#ifdef USE_VOXEL_GI_INSTANCES
 		{
-#ifdef SAMPLE_VOXEL_GI_NEAREST
+			#ifdef SAMPLE_VOXEL_GI_NEAREST
 			uvec2 voxel_gi_tex = texelFetch(voxel_gi_buffer, pos, 0).rg;
-#else
+			#else
 			uvec2 voxel_gi_tex = texelFetch(usampler2D(voxel_gi_buffer, linear_sampler), pos, 0).rg;
-#endif
+			#endif
 			roughness *= roughness;
 			//find arbitrary tangent and bitangent, then build a matrix
 			vec3 v0 = abs(normal.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0);
@@ -660,15 +658,15 @@ void process_gi(ivec2 pos, vec3 vertex, inout vec4 ambient_light, inout vec4 ref
 				spec_accum /= blend_accum;
 			}
 
-#ifdef USE_SDFGI
+			#ifdef USE_SDFGI
 			reflection_light = blend_color(spec_accum, reflection_light);
 			ambient_light = blend_color(amb_accum, ambient_light);
-#else
+			#else
 			reflection_light = spec_accum;
 			ambient_light = amb_accum;
-#endif
+			#endif
 		}
-#endif
+		#endif
 	}
 }
 
@@ -676,7 +674,7 @@ void main() {
 	ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
 
 	uint vrs_x, vrs_y;
-#ifdef USE_VRS
+	#ifdef USE_VRS
 	if (sc_use_vrs) {
 		ivec2 vrs_pos;
 
@@ -700,7 +698,7 @@ void main() {
 			return;
 		}
 	}
-#endif
+	#endif
 
 	if (sc_half_res) {
 		pos <<= 1;
@@ -725,7 +723,7 @@ void main() {
 	imageStore(ambient_buffer, pos, ambient_light);
 	imageStore(reflection_buffer, pos, reflection_light);
 
-#ifdef USE_VRS
+	#ifdef USE_VRS
 	if (sc_use_vrs) {
 		if (vrs_x > 1) {
 			imageStore(ambient_buffer, pos + ivec2(1, 0), ambient_light);
@@ -784,5 +782,5 @@ void main() {
 			imageStore(reflection_buffer, pos + ivec2(3, 3), reflection_light);
 		}
 	}
-#endif
+	#endif
 }
