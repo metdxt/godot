@@ -254,6 +254,7 @@
 #include "scene/3d/path_3d.h"
 #include "scene/3d/reflection_probe.h"
 #include "scene/3d/remote_transform_3d.h"
+#include "scene/3d/sdfgi_origin_3d.h"
 #include "scene/3d/retarget_modifier_3d.h"
 #include "scene/3d/skeleton_3d.h"
 #include "scene/3d/skeleton_modifier_3d.h"
@@ -647,6 +648,7 @@ void register_scene_types() {
 	GDREGISTER_CLASS(OmniLight3D);
 	GDREGISTER_CLASS(SpotLight3D);
 	GDREGISTER_CLASS(ReflectionProbe);
+	GDREGISTER_CLASS(SDFGIOrigin3D);
 	GDREGISTER_CLASS(Decal);
 	GDREGISTER_CLASS(VoxelGI);
 	GDREGISTER_CLASS(VoxelGIData);

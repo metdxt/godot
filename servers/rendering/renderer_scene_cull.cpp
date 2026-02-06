@@ -41,6 +41,10 @@
 #include "scene/main/node.h"
 #endif
 
+#ifndef _3D_DISABLED
+#include "scene/3d/node_3d.h"
+#endif // _3D_DISABLED
+
 /* HALTON SEQUENCE */
 
 #ifndef _3D_DISABLED
@@ -460,6 +464,36 @@ void RendererSceneCull::scenario_set_compositor(RID p_scenario, RID p_compositor
 	Scenario *scenario = scenario_owner.get_or_null(p_scenario);
 	ERR_FAIL_NULL(scenario);
 	scenario->compositor = p_compositor;
+}
+
+void RendererSceneCull::_register_sdfgi_origin(RID p_scenario, ObjectID p_origin_node) {
+	Scenario *scenario = scenario_owner.get_or_null(p_scenario);
+	ERR_FAIL_NULL(scenario);
+	scenario->active_sdfgi_origin = p_origin_node;
+}
+
+void RendererSceneCull::_unregister_sdfgi_origin(RID p_scenario, ObjectID p_origin_node) {
+	Scenario *scenario = scenario_owner.get_or_null(p_scenario);
+	ERR_FAIL_NULL(scenario);
+	if (scenario->active_sdfgi_origin == p_origin_node) {
+		scenario->active_sdfgi_origin = ObjectID();
+	}
+}
+
+void RendererSceneCull::register_sdfgi_origin(RID p_scenario, ObjectID p_origin_node) {
+	_register_sdfgi_origin(p_scenario, p_origin_node);
+}
+
+void RendererSceneCull::unregister_sdfgi_origin(RID p_scenario, ObjectID p_origin_node) {
+	_unregister_sdfgi_origin(p_scenario, p_origin_node);
+}
+
+ObjectID RendererSceneCull::_get_custom_sdfgi_origin(RID p_scenario) {
+	Scenario *scenario = scenario_owner.get_or_null(p_scenario);
+	if (!scenario) {
+		return ObjectID();
+	}
+	return scenario->active_sdfgi_origin;
 }
 
 void RendererSceneCull::scenario_set_fallback_environment(RID p_scenario, RID p_environment) {
@@ -3207,7 +3241,20 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 
 	if (p_reflection_probe.is_null()) {
 		//no rendering code here, this is only to set up what needs to be done, request regions, etc.
-		scene_render->sdfgi_update(p_render_buffers, p_environment, camera_position); //update conditions for SDFGI (whether its used or not)
+		// Check for custom SDFGI origin
+		Vector3 sdfgi_position = camera_position;
+		ObjectID custom_origin = _get_custom_sdfgi_origin(p_scenario);
+		if (custom_origin.is_valid()) {
+			// Look up the node in the scene to get its transform
+			Object *obj = ObjectDB::get_instance(custom_origin);
+			if (obj) {
+				Node3D *origin_node = Object::cast_to<Node3D>(obj);
+				if (origin_node) {
+					sdfgi_position = origin_node->get_global_transform().origin;
+				}
+			}
+		}
+		scene_render->sdfgi_update(p_render_buffers, p_environment, sdfgi_position); //update conditions for SDFGI (whether its used or not)
 	}
 
 	RENDER_TIMESTAMP("Update Visibility Dependencies");
@@ -3710,7 +3757,7 @@ bool RendererSceneCull::_render_reflection_probe_step(Instance *p_instance, int 
 			camera_data.set_camera(xform, cm, false, false, false);
 
 			RENDER_TIMESTAMP("Render ReflectionProbe, Face " + itos(face));
-			_render_scene(&camera_data, render_buffers, environment, RID(), RID(), RSG::light_storage->reflection_probe_get_cull_mask(p_instance->base), p_instance->scenario->self, RID(), shadow_atlas, reflection_probe->instance, face, mesh_lod_threshold, use_shadows);
+			_render_scene(&camera_data, render_buffers, environment, RID(), RID(), RSG::light_storage->reflection_probe_get_cull_mask(p_instance->base), p_instance->scenario->self, RID(), shadow_atlas, reflection_probe->instance, face, mesh_lod_threshold, use_shadows, nullptr);
 		}
 
 		RSG::light_storage->reflection_probe_instance_end_render(reflection_probe->instance, scenario->reflection_atlas);

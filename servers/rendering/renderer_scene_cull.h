@@ -348,6 +348,8 @@ public:
 
 		LocalVector<RID> dynamic_lights;
 
+		ObjectID active_sdfgi_origin; // ObjectID of the active SDFGI origin node
+
 		PagedArray<InstanceBounds> instance_aabbs;
 		PagedArray<InstanceData> instance_data;
 		VisibilityArray instance_visibility;
@@ -376,6 +378,10 @@ public:
 	virtual void scenario_set_fallback_environment(RID p_scenario, RID p_environment);
 	virtual void scenario_set_compositor(RID p_scenario, RID p_compositor);
 	virtual void scenario_set_reflection_atlas_size(RID p_scenario, int p_reflection_size, int p_reflection_count);
+
+	// SDFGI Origin API
+	virtual void register_sdfgi_origin(RID p_scenario, ObjectID p_origin_node);
+	virtual void unregister_sdfgi_origin(RID p_scenario, ObjectID p_origin_node);
 	virtual bool is_scenario(RID p_scenario) const;
 	virtual RID scenario_get_environment(RID p_scenario);
 	virtual void scenario_add_viewport_visibility_mask(RID p_scenario, RID p_viewport);
@@ -1153,7 +1159,11 @@ public:
 
 	bool _render_reflection_probe_step(Instance *p_instance, int p_step);
 
-	void _render_scene(const RendererSceneRender::CameraData *p_camera_data, const Ref<RenderSceneBuffers> &p_render_buffers, RID p_environment, RID p_force_camera_attributes, RID p_compositor, uint32_t p_visible_layers, RID p_scenario, RID p_viewport, RID p_shadow_atlas, RID p_reflection_probe, int p_reflection_probe_pass, float p_screen_mesh_lod_threshold, bool p_using_shadows = true, RenderInfo *r_render_info = nullptr);
+	void _render_scene(const RendererSceneRender::CameraData *p_camera_data, const Ref<RenderSceneBuffers> &p_render_buffers, RID p_environment, RID p_force_camera_attributes, RID p_compositor, uint32_t p_visible_layers, RID p_scenario, RID p_viewport, RID p_shadow_atlas, RID p_reflection_probe, int p_reflection_probe_pass, float p_screen_mesh_lod_threshold, bool p_using_shadows, RenderingMethod::RenderInfo *r_render_info);
+
+	void _register_sdfgi_origin(RID p_scenario, ObjectID p_origin_node);
+	void _unregister_sdfgi_origin(RID p_scenario, ObjectID p_origin_node);
+	ObjectID _get_custom_sdfgi_origin(RID p_scenario);
 	void render_empty_scene(const Ref<RenderSceneBuffers> &p_render_buffers, RID p_scenario, RID p_shadow_atlas);
 
 	void render_camera(const Ref<RenderSceneBuffers> &p_render_buffers, RID p_camera, RID p_scenario, RID p_viewport, Size2 p_viewport_size, uint32_t p_jitter_phase_count, float p_screen_mesh_lod_threshold, RID p_shadow_atlas, Ref<XRInterface> &p_xr_interface, RenderingMethod::RenderInfo *r_render_info = nullptr);

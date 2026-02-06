@@ -921,6 +921,10 @@ public:
 	FUNC2(scenario_set_fallback_environment, RID, RID)
 	FUNC2(scenario_set_compositor, RID, RID)
 
+	/* SDFGI ORIGIN API */
+	FUNC2(register_sdfgi_origin, RID, ObjectID)
+	FUNC2(unregister_sdfgi_origin, RID, ObjectID)
+
 	/* INSTANCING API */
 	FUNCRIDSPLIT(instance)
 

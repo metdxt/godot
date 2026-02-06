@@ -1445,6 +1445,11 @@ public:
 	virtual void scenario_set_camera_attributes(RID p_scenario, RID p_camera_attributes) = 0;
 	virtual void scenario_set_compositor(RID p_scenario, RID p_compositor) = 0;
 
+	/* SDFGI ORIGIN API */
+
+	virtual void register_sdfgi_origin(RID p_scenario, ObjectID p_origin_node) = 0;
+	virtual void unregister_sdfgi_origin(RID p_scenario, ObjectID p_origin_node) = 0;
+
 	/* INSTANCING API */
 
 	enum InstanceType {
