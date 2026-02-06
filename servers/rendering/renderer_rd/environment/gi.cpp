@@ -1742,7 +1742,6 @@ void GI::SDFGI::debug_probes(RID p_framebuffer, const uint32_t p_view_count, con
 	push_constant.grid_size[0] = cascade_size;
 	push_constant.grid_size[1] = cascade_size;
 	push_constant.grid_size[2] = cascade_size;
-	push_constant.cascade = 0;
 
 	push_constant.probe_axis_size = probe_axis_count;
 
@@ -1794,11 +1793,27 @@ void GI::SDFGI::debug_probes(RID p_framebuffer, const uint32_t p_view_count, con
 
 	RD::get_singleton()->draw_list_bind_render_pipeline(draw_list, gi->sdfgi_shader.debug_probes_pipeline[mode].get_render_pipeline(RD::INVALID_FORMAT_ID, RD::get_singleton()->framebuffer_get_format(p_framebuffer)));
 	RD::get_singleton()->draw_list_bind_uniform_set(draw_list, debug_probes_uniform_set, 0);
-	RD::get_singleton()->draw_list_set_push_constant(draw_list, &push_constant, sizeof(SDFGIShader::DebugProbesPushConstant));
-	RD::get_singleton()->draw_list_draw(draw_list, false, total_probes, total_points);
+
+	// Draw probes for all cascades
+	for (uint32_t cascade_idx = 0; cascade_idx < cascades.size(); cascade_idx++) {
+		push_constant.cascade = cascade_idx;
+		RD::get_singleton()->draw_list_set_push_constant(draw_list, &push_constant, sizeof(SDFGIShader::DebugProbesPushConstant));
+		RD::get_singleton()->draw_list_draw(draw_list, false, total_probes, total_points);
+	}
 
 	if (gi->sdfgi_debug_probe_dir != Vector3()) {
-		uint32_t cascade = 0;
+		// Find the closest cascade to the ray for probe selection
+		uint32_t closest_cascade = 0;
+		float closest_cascade_dist = 1e20;
+		for (uint32_t c = 0; c < cascades.size(); c++) {
+			Vector3 cascade_center = Vector3((Vector3i(1, 1, 1) * -int32_t(cascade_size >> 1) + cascades[c].position)) * cascades[c].cell_size * Vector3(1.0, 1.0 / y_mult, 1.0);
+			float dist = gi->sdfgi_debug_probe_pos.distance_to(cascade_center);
+			if (dist < closest_cascade_dist) {
+				closest_cascade_dist = dist;
+				closest_cascade = c;
+			}
+		}
+		uint32_t cascade = closest_cascade;
 		Vector3 offset = Vector3((Vector3i(1, 1, 1) * -int32_t(cascade_size >> 1) + cascades[cascade].position)) * cascades[cascade].cell_size * Vector3(1.0, 1.0 / y_mult, 1.0);
 		Vector3 probe_size = cascades[cascade].cell_size * (cascade_size / SDFGI::PROBE_DIVISOR) * Vector3(1.0, 1.0 / y_mult, 1.0);
 		Vector3 ray_from = gi->sdfgi_debug_probe_pos;
@@ -1829,8 +1844,18 @@ void GI::SDFGI::debug_probes(RID p_framebuffer, const uint32_t p_view_count, con
 	}
 
 	if (gi->sdfgi_debug_probe_enabled) {
+		// Find which cascade the selected probe belongs to
 		uint32_t cascade = 0;
 		uint32_t probe_cells = (cascade_size / SDFGI::PROBE_DIVISOR);
+		for (uint32_t c = 0; c < cascades.size(); c++) {
+			Vector3i probe_from_c = cascades[c].position / probe_cells;
+			Vector3i ofs = gi->sdfgi_debug_probe_index - probe_from_c;
+			if (ofs.x >= 0 && ofs.y >= 0 && ofs.z >= 0 &&
+					ofs.x <= SDFGI::PROBE_DIVISOR && ofs.y <= SDFGI::PROBE_DIVISOR && ofs.z <= SDFGI::PROBE_DIVISOR) {
+				cascade = c;
+				break;
+			}
+		}
 		Vector3i probe_from = cascades[cascade].position / probe_cells;
 		Vector3i ofs = gi->sdfgi_debug_probe_index - probe_from;
 		if (ofs.x < 0 || ofs.y < 0 || ofs.z < 0) {
