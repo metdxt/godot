@@ -1518,6 +1518,54 @@ void GI::SDFGI::debug_draw(uint32_t p_view_count, const Projection *p_projection
 	RendererRD::MaterialStorage *material_storage = RendererRD::MaterialStorage::get_singleton();
 	RendererRD::CopyEffects *copy_effects = RendererRD::CopyEffects::get_singleton();
 
+	// Validate that we have valid cascade data and shader resources before attempting to debug draw.
+	// This prevents crashes when the camera is outside the SDFGI-covered area or when SDFGI is not fully initialized.
+	if (cascades.is_empty() || !cascades_ubo.is_valid()) {
+		return;
+	}
+
+	// Validate shader pipeline is ready.
+	if (gi->sdfgi_shader.debug_shader_version.is_null()) {
+		return;
+	}
+
+	// Validate output texture views.
+	if (p_texture_views.is_empty()) {
+		return;
+	}
+	for (uint32_t v = 0; v < p_view_count; v++) {
+		if (!p_texture_views[v].is_valid()) {
+			return;
+		}
+	}
+
+	// Validate all cascade textures are properly initialized.
+	for (uint32_t i = 0; i < cascades.size(); i++) {
+		if (!cascades[i].sdf_tex.is_valid() ||
+				!cascades[i].light_tex.is_valid() ||
+				!cascades[i].light_aniso_0_tex.is_valid() ||
+				!cascades[i].light_aniso_1_tex.is_valid()) {
+			return;
+		}
+	}
+
+	// Validate shared textures.
+	if (!occlusion_texture.is_valid() || !lightprobe_texture.is_valid()) {
+		return;
+	}
+
+	// Ensure cascades have been rendered before debug draw.
+	// If cascades are still dirty (not rendered yet), the textures may contain invalid data.
+	for (uint32_t i = 0; i < cascades.size(); i++) {
+		if (cascades[i].dirty_regions != Vector3i()) {
+			return; // Cascade not fully rendered yet
+		}
+	}
+
+	// Ensure cascade UBO is up to date before debug draw.
+	// This is necessary because the camera may have moved since the last regular update.
+	update_cascades();
+
 	for (uint32_t v = 0; v < p_view_count; v++) {
 		if (!debug_uniform_set[v].is_valid() || !RD::get_singleton()->uniform_set_is_valid(debug_uniform_set[v])) {
 			Vector<RD::Uniform> uniforms;
@@ -1655,6 +1703,12 @@ void GI::SDFGI::debug_draw(uint32_t p_view_count, const Projection *p_projection
 
 void GI::SDFGI::debug_probes(RID p_framebuffer, const uint32_t p_view_count, const Projection *p_camera_with_transforms) {
 	RendererRD::MaterialStorage *material_storage = RendererRD::MaterialStorage::get_singleton();
+
+	// Validate that we have valid cascade data before attempting to debug draw.
+	// This prevents crashes when the camera is outside the SDFGI-covered area.
+	if (cascades.is_empty()) {
+		return;
+	}
 
 	// setup scene data
 	{

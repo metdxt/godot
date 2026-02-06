@@ -120,11 +120,10 @@ void main() {
 		vec3 pos = ray_pos - cascades.data[i].offset;
 		pos *= cascades.data[i].to_cell;
 
-		// Should never happen for debug, since we start mostly at the bounds center,
-		// but add anyway.
-		//if (any(lessThan(pos,vec3(0.0))) || any(greaterThanEqual(pos,params.grid_size))) {
-		//	continue; //already past bounds for this cascade, goto next
-		//}
+		// Skip if camera is outside this cascade's bounds
+		if (any(lessThan(pos, vec3(0.0))) || any(greaterThanEqual(pos, params.grid_size))) {
+			continue;
+		}
 
 		//find maximum advance distance (until reaching bounds)
 		vec3 t0 = -pos * inv_dir;
@@ -135,10 +134,14 @@ void main() {
 		float advance = 0.0;
 		vec3 uvw;
 		hit = false;
+		int iter = 0;
 
-		while (advance < max_advance) {
+		while (advance < max_advance && iter < 256) {
+			iter++;
 			//read how much to advance from SDF
 			uvw = (pos + ray_dir * advance) * pos_to_uvw;
+			// Clamp to valid texture coordinates to prevent out-of-bounds access
+			uvw = clamp(uvw, vec3(0.001), vec3(0.999));
 
 			float distance = texture(sampler3D(sdf_cascades[i], linear_sampler), uvw).r * 255.0 - 1.7;
 
