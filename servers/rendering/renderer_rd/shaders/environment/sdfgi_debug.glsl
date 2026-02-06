@@ -120,18 +120,28 @@ void main() {
 		vec3 pos = ray_pos - cascades.data[i].offset;
 		pos *= cascades.data[i].to_cell;
 
-		// Skip if camera is outside this cascade's bounds
-		if (any(lessThan(pos, vec3(0.0))) || any(greaterThanEqual(pos, params.grid_size))) {
-			continue;
-		}
-
 		//find maximum advance distance (until reaching bounds)
 		vec3 t0 = -pos * inv_dir;
 		vec3 t1 = (params.grid_size - pos) * inv_dir;
+		vec3 tmin = min(t0, t1);
 		vec3 tmax = max(t0, t1);
+		float min_advance = max(tmin.x, max(tmin.y, tmin.z));
 		float max_advance = min(tmax.x, min(tmax.y, tmax.z));
 
-		float advance = 0.0;
+		// If camera is outside this cascade, check if ray intersects it
+		if (any(lessThan(pos, vec3(0.0))) || any(greaterThanEqual(pos, params.grid_size))) {
+			// Ray doesn't intersect the cascade bounds
+			if (min_advance > max_advance || max_advance < 0.0) {
+				continue;
+			}
+			// Start from the entry point into the cascade
+			min_advance = max(min_advance, 0.0);
+		} else {
+			// Camera is inside, start from current position
+			min_advance = 0.0;
+		}
+
+		float advance = min_advance;
 		vec3 uvw;
 		hit = false;
 		int iter = 0;
