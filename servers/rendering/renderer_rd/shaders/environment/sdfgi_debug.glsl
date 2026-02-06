@@ -187,6 +187,19 @@ void main() {
 
 		hit_light *= (dot(max(vec3(0.0), (hit_normal * hit_aniso0)), vec3(1.0)) + dot(max(vec3(0.0), (-hit_normal * hit_aniso1)), vec3(1.0)));
 
+		// Apply cascade index coloring for debug visualization
+		vec3 cascade_colors[8] = vec3[](
+			vec3(1.0, 1.0, 1.0),  // Cascade 0: white
+			vec3(1.0, 0.0, 0.0),  // Cascade 1: red
+			vec3(0.0, 1.0, 0.0),  // Cascade 2: green
+			vec3(0.0, 0.0, 1.0),  // Cascade 3: blue
+			vec3(1.0, 1.0, 0.0),  // Cascade 4: yellow
+			vec3(1.0, 0.0, 1.0),  // Cascade 5: magenta
+			vec3(0.0, 1.0, 1.0),  // Cascade 6: cyan
+			vec3(1.0, 0.5, 0.0)   // Cascade 7: orange
+		);
+		hit_light *= cascade_colors[i % 8];
+
 		light = hit_light;
 
 		break;
